@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aadhar Card Reader</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .video-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      margin: auto;
+    }
+
+    #video {
+      width: 100%;
+      height: auto;
+    }
+
+    .overlay {
+      position: absolute;
+      top: 100px;
+      left: 170px;
+      width: 300px;
+      height: 180px;
+      border: 2px dashed red;
+      z-index: 2;
+      pointer-events: none;
+      box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Aadhaar Card Reader</h2>
+    <p id="instruction">Step 1: Capture <strong>Front Side</strong> of Aadhaar Card</p>
+
+    <div class="video-container">
+      <video id="video" autoplay playsinline></video>
+      <div class="overlay"></div>
+    </div>
+
+    <div class="button-group">
+      <button id="switchCamera">🔄 Switch Camera</button>
+      <button id="captureFront" onclick="capture('front')">📷 Capture Front</button>
+      <button id="captureBack" onclick="capture('back')" disabled>📷 Capture Back</button>
+    </div>
+
+    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+
+    <div id="result" class="result"></div>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
