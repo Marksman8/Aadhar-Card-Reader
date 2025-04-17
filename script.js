@@ -4,7 +4,7 @@ let context = canvas.getContext('2d');
 let currentCamera = 0;
 let stream;
 
-// Get access to the camera
+
 async function startCamera() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -24,10 +24,9 @@ document.getElementById('switchCamera').addEventListener('click', () => {
 });
 
 async function capture(side) {
-  // Draw current frame to canvas
+ 
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  // Crop only the overlay area (170, 100) with size 300x180
   const cropX = 170;
   const cropY = 100;
   const cropWidth = 300;
@@ -35,17 +34,16 @@ async function capture(side) {
 
   let imageData = context.getImageData(cropX, cropY, cropWidth, cropHeight);
 
-  // Create temporary canvas for cropped image
   let tempCanvas = document.createElement('canvas');
   tempCanvas.width = cropWidth;
   tempCanvas.height = cropHeight;
   let tempCtx = tempCanvas.getContext('2d');
   tempCtx.putImageData(imageData, 0, 0);
 
-  // Convert to base64
+  
   let base64Image = tempCanvas.toDataURL('image/jpeg');
 
-  // Send cropped image to server
+  
   const response = await fetch('/process_image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -77,5 +75,4 @@ function displayResult(data) {
   }
 }
 
-// Start the camera when page loads
 startCamera();
