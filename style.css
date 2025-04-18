@@ -1,26 +1,47 @@
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
+  background: #f0f0f0;
   text-align: center;
-  padding: 20px;
-  background-color: #f7f7f7;
 }
 .container {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
   margin: auto;
-  max-width: 700px;
 }
 video {
   width: 100%;
-  max-width: 640px;
-  border: 4px dashed #888;
-  border-radius: 10px;
-  margin: 10px 0;
+  height: auto;
 }
-.button-group button {
-  padding: 10px 15px;
+.button-group {
+  margin-top: 10px;
+}
+button {
   margin: 5px;
-  font-size: 16px;
+  padding: 10px;
 }
-.result {
-  margin-top: 20px;
-  font-weight: bold;
+.overlay {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0; left: 0;
+  pointer-events: none;
 }
+.corner {
+  width: 20px;
+  height: 20px;
+  border: 4px solid lime;
+  position: absolute;
+}
+#redBoxOverlay {
+  position: absolute;
+  top: 20%;
+  left: 10%;
+  width: 80%;
+  height: 60%;
+  border: 3px solid red;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 10;
+}
+
