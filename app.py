@@ -4,7 +4,6 @@ import pytesseract
 import re
 import os
 import base64
-import pandas as pd
 import numpy as np
 from datetime import datetime
 
@@ -19,7 +18,6 @@ form_data = {}
 
 def decode_image(base64_string, filename):
     try:
-        # Handle both with and without data:image prefix
         if ',' in base64_string:
             img_data = base64.b64decode(base64_string.split(',')[1])
         else:
@@ -39,13 +37,8 @@ def preprocess_image(img_path):
         if image is None:
             raise ValueError("Could not read image")
             
-        # Convert to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Noise reduction
         denoised = cv2.fastNlMeansDenoising(gray, h=10, templateWindowSize=7, searchWindowSize=21)
-        
-        # Adaptive thresholding
         thresh = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                      cv2.THRESH_BINARY, 31, 2)
         return thresh
@@ -59,7 +52,6 @@ def extract_text(img_path):
         if preprocessed is None:
             return ""
             
-        # Custom config for Indian documents
         config = r'--psm 6 --oem 3 -c preserve_interword_spaces=1'
         text = pytesseract.image_to_string(preprocessed, config=config)
         
@@ -69,7 +61,9 @@ def extract_text(img_path):
             'Pot eee': 'Puthenpura',
             'PO ': 'P.O. ',
             'Male Male': 'Male',
-            'AIG POISE': 'Ajsal Ashraf'
+            'AIG POISE': 'Ajsal Ashraf',
+            'Chalarikadayl': 'Chakirikadayil',
+            'Kottamiara': 'Kottamkara'
         }
         
         for wrong, right in corrections.items():
@@ -81,69 +75,65 @@ def extract_text(img_path):
         return ""
 
 def extract_step1(text):
-    result = {"Name": "", "DOB": "", "Gender": "", "Phone": ""}
+    result = {
+        "Name": "",
+        "DOB": "",
+        "Gender": "",
+        "Phone": ""
+    }
+    
     lines = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    # Name extraction
+    for i, line in enumerate(lines):
+        if "DOB" in line or "Date of Birth" in line:
+            if i > 0 and not any(c.isdigit() for c in lines[i-1]):
+                result["Name"] = lines[i-1].strip(' ,-')
+                break
+    
+    if not result["Name"]:
+        for line in lines:
+            if (re.match(r'^[A-Z][a-z]+(\s[A-Z][a-z]+)+$', line) and
+               not any(c.isdigit() for c in line) and
+               len(line.split()) <= 3):
+                result["Name"] = line.strip()
+                break
 
-    # 1. Simple Name Extraction
+    # DOB extraction
     for line in lines:
-        # Skip lines with numbers or document headers
-        if any(word in line.upper() for word in ["GOVERNMENT", "AADHAAR", "INDIA"]):
-            continue
-            
-        # Basic name pattern: 2-3 capitalized words
-        if (line.istitle() and             # All words capitalized
-            2 <= len(line.split()) <= 3 and # 2-3 words
-            not any(c.isdigit() for c in line)): # No numbers
-            
-            # Common OCR fixes
-            line = line.replace("AIG POISE", "Ajsal Ashraf")
-            result["Name"] = line
+        dob_match = re.search(r'(?:DOB|Date of Birth)[:\s]*(\d{2}/\d{2}/\d{4})', line, re.I)
+        if dob_match:
+            result["DOB"] = dob_match.group(1)
             break
+        else:
+            date_match = re.search(r'\d{2}/\d{2}/\d{4}', line)
+            if date_match:
+                result["DOB"] = date_match.group()
+                break
 
-    # 2. Simple DOB Extraction
+    # Gender extraction
     for line in lines:
-        # Find dates with different separators
-        date_match = re.search(r'\b\d{2}[/\-\.]\d{2}[/\-\.]\d{4}\b', line)
-        if date_match:
-            dob = date_match.group()
-            # Standardize format to DD/MM/YYYY
-            dob = dob.replace("-", "/").replace(".", "/")
-            result["DOB"] = dob
+        if 'MALE' in line.upper():
+            result["Gender"] = 'Male'
+            break
+        elif 'FEMALE' in line.upper():
+            result["Gender"] = 'Female'
             break
 
-        # Also check for labeled dates
-        labeled_match = re.search(r'(?:DOB|Birth)[:\s]*(\d{2}[/\-\.]\d{2}[/\-\.]\d{4})', line, re.I)
-        if labeled_match:
-            dob = labeled_match.group(1)
-            dob = dob.replace("-", "/").replace(".", "/")
-            result["DOB"] = dob
-            break
-
-    # 3. Extract Gender
+    # Phone extraction
     for line in lines:
-        if "female" in line.lower():
-            result["Gender"] = "Female"
-            break
-        elif "male" in line.lower():
-            result["Gender"] = "Male"
-            break
-
-    # 4. Extract Phone Number (10-digit number)
-    for line in lines:
-        phone_match = re.search(r'\b[6-9]\d{9}\b', line)
+        phone_match = re.search(r'(?:\+91\s?)?[6-9]\d{9}', line)
         if phone_match:
-            result["PhoneNumber"] = phone_match.group(0)
+            result["Phone"] = phone_match.group().replace(" ", "")
             break
 
     return result
 
-
 def extract_step2(text):
-    """Extract Aadhaar number with robust pattern matching"""
     patterns = [
-        r'\b\d{4}\s\d{4}\s\d{4}\b',  # Standard format
-        r'\b\d{4}-\d{4}-\d{4}\b',     # Hyphenated
-        r'\b\d{12}\b',                 # Continuous
+        r'\b\d{4}\s\d{4}\s\d{4}\b',
+        r'\b\d{4}-\d{4}-\d{4}\b',
+        r'\b\d{12}\b',
         r'\b\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d[\s-]?\d\b'
     ]
     
@@ -157,7 +147,6 @@ def extract_step2(text):
     return {"Aadhaar": ""}
 
 def extract_step3(text):
-    """Enhanced address extraction with intelligent corrections"""
     corrections = [
         (r'Ch[a@]l[ae]r?i?kad[ae]y?[il][\b,]', 'Chakirikadayil'),
         (r'Kott?[ae]m[ae]?i?ara[\b,]', 'Kottamkara'),
@@ -194,35 +183,31 @@ def extract_step3(text):
         "Address": full_address,
         "Pincode": pincode
     }
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', data=form_data)
 
 @app.route('/process_image', methods=['POST'])
 def process_image():
     global form_data
     try:
-        # Validate request
-        if not request.is_json:
-            return jsonify({"status": "error", "message": "Request must be JSON"}), 400
+        if not request.json:
+            return jsonify({"status": "error", "message": "No JSON data"}), 400
             
-        data = request.get_json()
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON data received"}), 400
-            
-        img_data = data.get('image')
-        step = data.get('step')
+        img_data = request.json.get('image')
+        step = request.json.get('step')
         
         if not img_data or not step:
-            return jsonify({"status": "error", "message": "Missing image or step parameter"}), 400
+            return jsonify({"status": "error", "message": "Missing parameters"}), 400
 
         filename = f"{step}.jpg"
         filepath = decode_image(img_data, filename)
         if not filepath:
-            return jsonify({"status": "error", "message": "Image decoding failed"}), 400
+            return jsonify({"status": "error", "message": "Image decode failed"}), 400
 
         text = extract_text(filepath)
-        print(f"Extracted text: {text}")  # Debug output
+        print(f"DEBUG - Extracted text for {step}:\n{text}")
         
         if step == "step1":
             form_data.update(extract_step1(text))
@@ -234,10 +219,38 @@ def process_image():
             form_data.update(extract_step3(text))
             return jsonify({"status": "complete", "data": form_data})
         else:
-            return jsonify({"status": "error", "message": "Invalid step parameter"}), 400
+            return jsonify({"status": "error", "message": "Invalid step"}), 400
             
     except Exception as e:
         print(f"Error in process_image: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/process_upload', methods=['POST'])
+def process_upload():
+    global form_data
+    try:
+        if 'image' not in request.files:
+            return jsonify({"status": "error", "message": "No file uploaded"}), 400
+            
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({"status": "error", "message": "No selected file"}), 400
+
+        # Process all steps at once
+        filepath = os.path.join(UPLOAD_FOLDER, "temp.jpg")
+        file.save(filepath)
+        
+        text = extract_text(filepath)
+        form_data = {
+            **extract_step1(text),
+            **extract_step2(text),
+            **extract_step3(text)
+        }
+        
+        return jsonify({"status": "complete", "data": form_data})
+        
+    except Exception as e:
+        print(f"Error in process_upload: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/download')
