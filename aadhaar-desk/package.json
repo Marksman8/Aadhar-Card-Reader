@@ -1,0 +1,11 @@
+{
+  "name": "aadhaar-desk",
+  "version": "1.0.0",
+  "description": "Aadhaar card registration desk with Claude Vision AI",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

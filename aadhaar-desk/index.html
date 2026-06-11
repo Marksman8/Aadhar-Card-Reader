@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aadhaar Registration Desk</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar">
+  <div class="topbar-flag"><span></span><span></span><span></span></div>
+  <div>
+    <div class="topbar-title">Aadhaar Registration Desk</div>
+  </div>
+  <span class="topbar-sub">Visitor Registration System</span>
+  <div class="topbar-right">
+    <div class="topbar-stat">
+      <div class="dot-live"></div>
+      Today: <strong id="todayCount">0</strong> registered
+    </div>
+    <div class="topbar-time" id="clockEl">--:--:--</div>
+  </div>
+</div>
+
+<!-- ── CAMERA MODAL ── -->
+<div class="modal-bg" id="camModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="camModalLabel">📷 Capture Front Side</h3>
+      <button class="modal-x" onclick="closeCamera()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="camLoading">
+        <div class="scan-spinner"></div>
+        <span>Starting camera…</span>
+      </div>
+      <div id="camError"></div>
+      <div class="cam-wrap">
+        <video id="camFeed" autoplay playsinline muted></video>
+        <div class="cam-guide-box"></div>
+      </div>
+      <button class="btn-capture" id="captureBtn" onclick="captureSnap()" style="display:none;">
+        📸 Capture
+      </button>
+      <div class="divider-or">— or —</div>
+      <label class="btn-gallery">
+        🖼️ Choose from Files / Gallery
+        <input type="file" accept="image/*" id="galleryInput" style="display:none;" onchange="handleGallery(event)">
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast">✅ <span id="toastMsg"></span></div>
+
+<!-- ── WORKSPACE ── -->
+<div class="workspace">
+
+  <!-- LEFT: UPLOAD PANEL -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <span class="panel-title">Aadhaar Card</span>
+      <span style="font-size:11px;color:var(--label);">Both sides required</span>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- Front upload zone -->
+      <div class="upload-zone" id="frontZone" onclick="document.getElementById('frontFileInput').click()">
+        <input type="file" id="frontFileInput" accept="image/*" onchange="handleFile(event,'front')">
+        <div class="zone-inner">
+          <div class="zone-thumb" id="frontThumb">🪪</div>
+          <div class="zone-info">
+            <div class="zone-label">
+              <span class="zone-tag">FRONT</span> Front Side
+            </div>
+            <div class="zone-meta" id="frontMeta">Name · DOB · Gender · Aadhaar No.</div>
+          </div>
+          <div class="zone-check" id="frontCheck" style="display:none;">✓</div>
+        </div>
+      </div>
+
+      <!-- Back upload zone -->
+      <div class="upload-zone" id="backZone" onclick="document.getElementById('backFileInput').click()">
+        <input type="file" id="backFileInput" accept="image/*" onchange="handleFile(event,'back')">
+        <div class="zone-inner">
+          <div class="zone-thumb" id="backThumb">🗺️</div>
+          <div class="zone-info">
+            <div class="zone-label">
+              <span class="zone-tag back">BACK</span> Back Side
+            </div>
+            <div class="zone-meta" id="backMeta">Address · Pincode</div>
+          </div>
+          <div class="zone-check" id="backCheck" style="display:none;">✓</div>
+        </div>
+      </div>
+
+      <!-- Camera buttons -->
+      <div class="cam-row">
+        <button class="btn-cam" onclick="openCamera('front')">📷 Camera — Front</button>
+        <button class="btn-cam" onclick="openCamera('back')">📷 Camera — Back</button>
+      </div>
+
+      <!-- Scan button -->
+      <button class="scan-btn" id="scanBtn" onclick="doScan()" disabled>
+        🔍 Scan &amp; Extract
+      </button>
+
+    </div>
+
+    <div class="status-bar" id="statusBar">
+      <div class="dot"></div>
+      <span id="statusText">Upload both sides to begin</span>
+    </div>
+  </div>
+
+  <!-- RIGHT: DATA PANEL -->
+  <div class="right-panel">
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🪪</div>
+      <p>No card scanned yet</p>
+      <span>Upload both sides and click Scan &amp; Extract</span>
+    </div>
+
+    <!-- Scanning animation -->
+    <div class="scan-overlay" id="scanOverlay">
+      <div class="scan-spinner"></div>
+      <div class="scan-label">Reading Aadhaar Card…</div>
+      <div class="scan-sub">AI is extracting information</div>
+      <div class="scan-steps">
+        <div class="scan-step" id="ss1">🔍 Detecting card layout</div>
+        <div class="scan-step" id="ss2">🔤 Reading printed text</div>
+        <div class="scan-step" id="ss3">👤 Extracting personal details</div>
+        <div class="scan-step" id="ss4">📍 Reading address from back</div>
+        <div class="scan-step" id="ss5">🔒 Masking Aadhaar number</div>
+      </div>
+    </div>
+
+    <!-- Filled form -->
+    <div class="form-area" id="formArea">
+      <div class="form-topbar">
+        <div class="form-topbar-info">
+          <div class="form-topbar-name" id="ftName">—</div>
+          <div class="form-topbar-meta" id="ftAadhaar">XXXX XXXX ????</div>
+        </div>
+        <div class="confidence-pill high" id="confPill">● High confidence</div>
+      </div>
+
+      <div class="form-scroll">
+        <div class="form-grid">
+
+          <div class="form-group span2">
+            <label><div class="ai-dot"></div> Full Name</label>
+            <input type="text" id="f_name" class="ai" placeholder="As on Aadhaar">
+          </div>
+
+          <div class="form-group">
+            <label><div class="ai-dot"></div> Gender</label>
+            <select id="f_gender" class="ai">
+              <option value="">Select</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Transgender</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label><div class="ai-dot"></div> Date of Birth</label>
+            <input type="text" id="f_dob" class="ai" placeholder="DD/MM/YYYY">
+          </div>
+
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" id="f_phone" placeholder="+91 XXXXX XXXXX">
+          </div>
+
+          <div class="form-group">
+            <label><div class="ai-dot"></div> Pincode</label>
+            <input type="text" id="f_pincode" class="ai" placeholder="6-digit" maxlength="6">
+          </div>
+
+          <div class="form-group">
+            <label>🔒 Aadhaar (Masked)</label>
+            <input type="text" id="f_aadhaar" class="ai mono" readonly placeholder="XXXX XXXX 1234">
+          </div>
+
+          <div class="form-group span3">
+            <label><div class="ai-dot"></div> Address</label>
+            <input type="text" id="f_address" class="ai" placeholder="Full address from back side">
+          </div>
+
+        </div>
+
+        <div style="margin-top:14px;padding:10px 12px;background:#F9FAFB;border-radius:7px;border:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:7px;">
+          🟢 <strong style="color:var(--text);">Green-bordered fields</strong> — filled by AI. Review before saving.
+          <span style="color:var(--label);">Aadhaar number is always masked per UIDAI guidelines.</span>
+        </div>
+      </div>
+
+      <div class="form-footer">
+        <button class="btn-save" onclick="saveRecord()">✅ Register Visitor</button>
+        <button class="btn-rescan" onclick="resetAll()">↺ New Scan</button>
+        <div class="footer-note">🔒 Data saved locally</div>
+      </div>
+    </div>
+
+    <!-- Today's records table -->
+    <div class="records-area" id="recordsArea">
+      <div class="records-header">
+        <span class="records-title">Today's Registrations</span>
+        <span class="records-count" id="recordCount">0 records</span>
+      </div>
+      <div class="records-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>DOB</th>
+              <th>Gender</th>
+              <th>Aadhaar</th>
+              <th>Pincode</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="recordsBody">
+            <tr>
+              <td colspan="7" style="text-align:center;color:var(--label);padding:20px;font-size:12px;">
+                No registrations yet today
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /workspace -->
+
+<script src="js/app.js"></script>
+</body>
+</html>
